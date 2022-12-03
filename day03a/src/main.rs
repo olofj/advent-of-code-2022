@@ -2,22 +2,13 @@
 fn main() {
     let sum:usize = include_str!("input.txt")
         .lines()
-        .map(|l| {
-            let sz = l.chars().count();
-            let mut found = 'a';
-            for c in l.chars() {
-                if l.rfind(c).unwrap() >= sz/2 {
-                    found = c;
-                    break;
-                }
-            }
-            found
-        })
+        .map(|l| l.chars().find(|&c| l.rfind(c).unwrap() >= l.len()/2).unwrap())
+        .map(|c| c as u8)
         .map(|c| 
-            if c <= 'Z' {
-                c as u8 - b'A' + 27
-            } else {
-                c as u8 - b'a' + 1
+            match c {
+                b'A'..=b'Z' => c - b'A' + 27,
+                b'a'..=b'z' => c - b'a' + 1,
+                _ => 0,
             } as usize
         )
         .sum();
