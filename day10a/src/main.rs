@@ -1,32 +1,30 @@
 fn main() {
-    let mut X: isize = 1;
-    let mut Xtrace: Vec<usize> = vec![1; 1];
-    let mut clk: usize = 1;
+    let mut x: isize = 1;
 
-    let input = include_str!("input.txt")
+    let mut xtrace: Vec<isize> = include_str!("input.txt")
         .lines()
         .map(|l| l.split(" ").collect::<Vec<&str>>())
-        .collect::<Vec<Vec<&str>>>();
-
-    input.iter().for_each(|cmd| {
-        match cmd[0] {
+        .map(|cmd| match cmd[0] {
             "noop" => {
-                Xtrace.push(X as usize); clk += 1; },
+                vec![x]
+            }
             "addx" => {
-                Xtrace.push(X as usize); clk += 1;
-                Xtrace.push(X as usize); clk += 1;
-                X += cmd[1].parse::<isize>().unwrap();
-            },
+                let prev = x;
+                x += cmd[1].parse::<isize>().unwrap();
+                vec![prev, prev]
+            }
             _ => panic!("unknown command {}", cmd[0]),
-        }
-    });
+        })
+        .flatten()
+        .collect::<Vec<isize>>();
+        
+    // make it 1-indexed by adding an initial value at cycle 0
+    xtrace.insert(0, 1);
 
-    println!("input: {:?}", input);
-    println!("clk: {}", clk);
-    let mut total: usize = 0;
-    for i in vec![ 20, 60, 100, 140, 180, 220 ]  {
-        println!("x[{}]: {}", i, Xtrace[i]);
-        total += i * Xtrace[i];
+    let mut total: isize = 0;
+    for i in (20..=220).step_by(40) {
+        println!("x[{}]: {}", i, xtrace[i]);
+        total += i as isize * xtrace[i];
     }
     println!("total: {}", total);
 }
