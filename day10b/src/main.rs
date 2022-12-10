@@ -1,49 +1,36 @@
-use itertools::Itertools;
-
 fn main() {
-    let mut X: isize = 1;
-    let mut Xtrace: Vec<isize> = Vec::new();
-    let mut clk: usize = 1;
+    let mut x: isize = 1;
 
-    let input = include_str!("input.txt")
+    let xtrace: Vec<isize> = include_str!("input.txt")
         .lines()
         .map(|l| l.split(" ").collect::<Vec<&str>>())
-        .collect::<Vec<Vec<&str>>>();
+        .map(|cmd| match cmd[0] {
+            "noop" => {
+                vec![x]
+            }
+            "addx" => {
+                let prev = x;
+                x += cmd[1].parse::<isize>().unwrap();
+                vec![prev, prev]
+            }
+            _ => panic!("unknown command {}", cmd[0]),
+        })
+        .flatten()
+        .collect::<Vec<isize>>();
 
-    input.iter().for_each(|cmd| match cmd[0] {
-        "noop" => {
-            Xtrace.push(X);
-            clk += 1;
-        }
-        "addx" => {
-            Xtrace.push(X);
-            clk += 1;
-            Xtrace.push(X);
-            clk += 1;
-            X += cmd[1].parse::<isize>().unwrap();
-        }
-        _ => panic!("unknown command {}", cmd[0]),
-    });
-
-    let out = Xtrace
-        .iter()
+    let out: Vec<String> = xtrace
         .chunks(40)
         .into_iter()
         .map(|c| {
-            c.enumerate()
-                .map(|(i, &x)| {
-                    let i = i as isize;
-                    if x + 1 == i || x == i || x - 1 == i {
-                        '#'
-                    } else {
-                        '.'
-                    }
+            c.iter()
+                .enumerate()
+                .map(|(i, &x)| match i as isize - x {
+                    -1 | 0 | 1 => 'X',
+                    _ => '.',
                 })
                 .collect::<String>()
         })
         .collect::<Vec<String>>();
 
-    for l in out {
-        println!("{}", l);
-    }
+    println!("{}", out.join("\n"));
 }
