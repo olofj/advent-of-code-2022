@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+const MOVES: [(isize, isize, char); 4] = [(-1, 0, 'v'), (1, 0, '>'), (0, -1, '<'), (0, 1, '^')];
+
 fn main() {
     let mut start: (usize, usize) = (0, 0);
     let mut end: (usize, usize) = (0, 0);
@@ -31,27 +33,20 @@ fn main() {
     let xmax = input.len() as isize;
     let ymax = input[0].len() as isize;
     let mut moves: VecDeque<(usize, usize)> = VecDeque::new();
+
     let mut steps: Vec<Vec<usize>> = vec![vec![0; ymax as usize]; xmax as usize];
+    steps[start.0][start.1] = 0;
 
-    steps[start.0][start.1] = 1;
-
-    const MOVES: [(isize, isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
     moves.push_back(start);
-    let mut visited = 1;
     while let Some((x, y)) = moves.pop_front() {
         let cur = steps[x][y];
         let curlevel = input[x][y];
-        visited += 1;
-        for (mx, my) in MOVES.iter().filter_map(|(mx, my)| {
-            let x = x as isize + mx;
-            let y = y as isize + my;
-            if x < 0 || y < 0 || x >= xmax || y >= ymax {
-                None
-            } else {
-                Some((x as usize, y as usize))
-            }
-        }) {
-            if input[mx][my] <= curlevel + 1 && (steps[mx][my] > cur + 1 || steps[mx][my] == 0) {
+        for m in MOVES {
+            let mx = (x as isize + m.0) as usize;
+            let my = (y as isize + m.1) as usize;
+            let Some(&gridlevel) = input.get(mx).and_then(|l| l.get(my)) else { continue };
+            let Some(&gridsteps) = steps.get(mx).and_then(|l| l.get(my)) else { continue };
+            if gridlevel <= curlevel + 1 && (gridsteps > cur + 1 || gridsteps == 0) {
                 steps[mx][my] = cur + 1;
                 moves.push_back((mx, my));
             }
@@ -59,5 +54,5 @@ fn main() {
     }
     println!("xmax {} ymax {}", xmax, ymax);
     println!("start {:?} end {:?}", start, end);
-    println!("steps at end: {}", steps[end.0][end.1] - 1);
+    println!("steps at end: {}", steps[end.0][end.1]);
 }
