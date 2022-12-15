@@ -24,21 +24,20 @@ fn main() {
         .map(|(s, b) | (s,distance(s,b)))
         .collect::<Vec<((isize, isize), isize)>>();
 
-    println!("input: {:?}", input);
-    //    Sensor at x=2, y=18: closest beacon is at x=-2, y=15
-    //
+    // println!("input: {:?}", input);
     let y = 2000000;
     let allranges = input.iter().map(|((sx,sy),d)| {
         let dist = sy.abs_diff(y) as isize;
         let mut hs:Vec<isize> = vec![];
         if dist <= *d {
-            println!("range: {:?}..{:?} (d {} dist {})", sx-(d-dist), sx+(d-dist), d, dist);
+            // println!("range: {:?}..{:?} (d {} dist {})", sx-(d-dist), sx+(d-dist), d, dist);
             hs = (sx-(d-dist)..sx+(d-dist)).collect::<Vec<isize>>();
         }
         hs
     })
     .flatten()
     .collect::<HashSet<isize>>();
+
     println!("count: {}", allranges.len());
 
 //    println!("input: {:?}", input);
