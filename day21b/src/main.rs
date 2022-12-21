@@ -1,50 +1,32 @@
+use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
-/*
-name: <number> or <operation>
-root: pppw + sjmn
-dbpl: 5
-cczh: sllz + lgvd
-zczc: 2
-ptdq: humn - dvpt
-dvpt: 3
-lfqf: 4
-humn: 5
-ljgn: 2
-sjmn: drzm * dbpl
-sllz: 4
-pppw: cczh / lfqf
-lgvd: ljgn * ptdq
-drzm: hmdt - zczc
-hmdt: 32
-*/
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 enum MonkeyJob {
-    Number(usize),
+    Number(isize),
     Operation(char, String, String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Monkey {
     job: MonkeyJob,
 }
 
-fn solve(str: &String, monkeys: &HashMap<String,Monkey>, humn: usize) -> Result<usize,usize> {
+fn solve(str: &String, monkeys: &HashMap<String, Monkey>, humn: isize) -> Option<isize> {
+    // override for humn instead of trying to modify the hashmap before every call
     if str == "humn" {
-        return Ok(humn);
+        return Some(humn);
     }
-    let m = monkeys.get(str).unwrap();
-    match &m.job {
-        MonkeyJob::Number(x) => Ok(*x),
+    match &monkeys.get(str)?.job {
+        MonkeyJob::Number(x) => Some(*x),
         MonkeyJob::Operation(op, op1, op2) => {
-            let op1: usize = solve(&op1, monkeys, humn)?;
-            let op2: usize = solve(&op2, monkeys, humn)?;
+            let op1: isize = solve(&op1, monkeys, humn)?;
+            let op2: isize = solve(&op2, monkeys, humn)?;
             match op {
-                '+' => Ok(op1 + op2),
-                '*' => Ok(op1 * op2),
-                '-' => op1.checked_sub(op2).ok_or(1),
-                '/' => op1.checked_div(op2).ok_or(0),
-                '=' => Ok((op1 == op2) as usize),
+                '+' => op1.checked_add(op2),
+                '*' => op1.checked_mul(op2),
+                '-' => op1.checked_sub(op2),
+                '/' => op1.checked_div(op2),
                 _ => panic!("Unknown operator {}", op),
             }
         }
@@ -52,81 +34,100 @@ fn solve(str: &String, monkeys: &HashMap<String,Monkey>, humn: usize) -> Result<
 }
 
 fn main() {
-    let mut monkeys = include_str!("input.txt")
+    let monkeys = include_str!("input.txt")
         .lines()
         .map(|l| l.split_once(": ").unwrap())
-        .map(|(name, job)| (name.to_string(), Monkey {
-            job: if let Some(num) = job.parse::<usize>().ok() {
-                MonkeyJob::Number(num)
-            } else {
-                let op: Vec<&str> = job.split(" ").collect::<Vec<&str>>();
-                MonkeyJob::Operation(op[1].chars().next().unwrap(), op[0].to_string(), op[2].to_string())
-            }
-        }))
-        .collect::<HashMap<String,Monkey>>();
+        .map(|(name, job)| {
+            (
+                name.to_string(),
+                Monkey {
+                    job: if let Some(num) = job.parse::<isize>().ok() {
+                        MonkeyJob::Number(num)
+                    } else {
+                        let op: Vec<&str> = job.split(" ").collect::<Vec<&str>>();
+                        MonkeyJob::Operation(
+                            op[1].chars().next().unwrap(),
+                            op[0].to_string(),
+                            op[2].to_string(),
+                        )
+                    },
+                },
+            )
+        })
+        .collect::<HashMap<String, Monkey>>();
 
-    let r = monkeys.remove("root").unwrap();
-    let (root_op1, root_op2) = if let MonkeyJob::Operation(_,root_op1,root_op2) = r.job {
-        (root_op1, root_op2)
-    } else {
-        ("FOO1".to_string(), "FOO2".to_string())
+    // Get the two operands for root so we can iterate on them
+    let r = monkeys.get("root").unwrap();
+    let (mut root_op1, mut root_op2, _): (String, String, MonkeyJob) = match &r.job {
+        MonkeyJob::Operation(_, op1, op2) => (
+            op1.clone(),
+            op2.clone(),
+            MonkeyJob::Operation('=', op1.to_string(), op2.to_string()),
+        ),
+        MonkeyJob::Number(_) => panic!("root can't be a number"),
     };
-    monkeys.insert("root".to_string(), Monkey { job: MonkeyJob::Operation( '=', root_op1.clone(), root_op2.clone()) });
-    println!("root: {:?}", monkeys.get("root").unwrap());
+//    println!("root: {:?}", r);
+
+    // Possibly reorder op1/op2 to make positive corellation between
+    // delta(humn) and delta(op2-op1) for easier binary search.
     
-    let try1 = solve(&root_op1, &monkeys, 1000).unwrap();
-    let try2 = solve(&root_op1, &monkeys, 2000).unwrap();
-    let positive = if try1 != try2 {
-        try2 > try1
-    } else {
-        let try1 = solve(&root_op2, &monkeys, 1000).unwrap();
-        let try2 = solve(&root_op2, &monkeys, 2000).unwrap();
-        try2 > try1
+    // FIXME: If either side doesn't evaluate for humn=1000 or humn=2000 we'd
+    // need to search for useful values to try around.
+
+    let op1_1000 = solve(&root_op1, &monkeys, 1000).unwrap();
+    let op1_2000 = solve(&root_op1, &monkeys, 2000).unwrap();
+    let op2_1000 = solve(&root_op2, &monkeys, 1000).unwrap();
+    let op2_2000 = solve(&root_op2, &monkeys, 2000).unwrap();
+    (root_op1, root_op2) = match (op1_1000.cmp(&op1_2000), op2_1000.cmp(&op2_2000)) {
+        (Equal, Less) => (root_op2, root_op1),
+        (Equal, Greater) => (root_op1, root_op2),
+        (Less, Equal) => (root_op1, root_op2),
+        (Greater, Equal) => (root_op2, root_op1),
+        _ => panic!("Neither side of root depends on humn?!"),
     };
 
+    // Now all we need to do is binary search for the right humn value!
+    
     let mut min = 0;
-    let mut max = std::usize::MAX>>21;
-    let mut med = (max + min) / 2;
-    while min < max-1 {
+    let mut max = std::isize::MAX;
+    let res = loop {
+        let med = (max + min) / 2;
+        if min >= max - 1 {
+            break None;
+        }
         let op1 = solve(&root_op1, &monkeys, med);
         let op2 = solve(&root_op2, &monkeys, med);
-        if op1.is_err() || op2.is_err() {
-            let newmed = max-2;
-            if solve(&root_op1, &monkeys, newmed).is_ok() && 
-               solve(&root_op2, &monkeys, newmed).is_ok() {
+        if op1.is_none() || op2.is_none() {
+    	    // Whoops, bad result on either side. Let's just move
+	        // away from the half side that has bad values at either
+            // end of the range.
+
+            let newmed = max - 2;
+            if solve(&root_op1, &monkeys, newmed).is_some()
+                && solve(&root_op2, &monkeys, newmed).is_some()
+            {
                 min = med;
-                med = (max+med)/2;
-                continue;
-            }
-            let newmed = min+2;
-            if solve(&root_op1, &monkeys, newmed).is_ok() && 
-               solve(&root_op2, &monkeys, newmed).is_ok() {
+            } else {
                 max = med;
-                med = (min+med)/2;
-                continue;
-            } 
+            }
+            continue;
         }
-        let op1 = op1.unwrap();
-        let op2 = op2.unwrap();
-        println!("bisecting {:14} - {:14}, med {:14} (delta: {})", min, max, med, op2 as isize - op1 as isize);
-        if op1 == op2 {
-            println!("Found it: {}", med);
-            break;
+//        println!("bisecting {:14} - {:14}, med {:14}: {:?} {:?}: delta {}", min, max, med, op1, op2, op2.unwrap() - op1.unwrap());
+        match op1.cmp(&op2) {
+            Equal => break Some(med),
+            Less => min = med,
+            Greater => max = med,
         }
-        if (positive && op2 > op1) || (!positive && op1 > op2) {
-            min = med;
-        } else if (!positive && op2 > op1) || (positive && op1 > op2) {
-            max = med;
-        }
-        med = (max + min) / 2;
-    }
+    };
 
-
-    if solve(&"root".to_string(), &monkeys, med).unwrap() != 1 {
-        println!("No solution in the range");
+    if res == None {
+        println!("Can't find a solution in the range 0..{}", std::isize::MAX);
     } else {
-        println!("For humn = {}, root: {}", med, solve(&"root".to_string(), &monkeys, med).unwrap());
-    }
+        let med = res.unwrap();
 
-//    println!("input: {:#?}", monkeys);
+        let answers = (med-20..med+20).filter(|i| {
+            solve(&root_op1, &monkeys, *i) == solve(&root_op2, &monkeys, *i)
+        }).collect::<Vec<isize>>();
+        println!("These are valid answers: {:?}", answers);
+    }
 }
