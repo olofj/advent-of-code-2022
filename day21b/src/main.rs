@@ -12,21 +12,21 @@ struct Monkey {
     job: MonkeyJob,
 }
 
-fn solve(str: &String, monkeys: &HashMap<String, Monkey>, humn: isize) -> Option<isize> {
+fn solve(str: &String, monkeys: &HashMap<String, Monkey>, humn: isize) -> Option<f64> {
     // override for humn instead of trying to modify the hashmap before every call
     if str == "humn" {
-        return Some(humn);
+        return Some(humn as f64);
     }
     match &monkeys.get(str)?.job {
-        MonkeyJob::Number(x) => Some(*x),
+        MonkeyJob::Number(x) => Some(*x as f64),
         MonkeyJob::Operation(op, op1, op2) => {
-            let op1: isize = solve(&op1, monkeys, humn)?;
-            let op2: isize = solve(&op2, monkeys, humn)?;
+            let op1: f64 = solve(&op1, monkeys, humn)?;
+            let op2: f64 = solve(&op2, monkeys, humn)?;
             match op {
-                '+' => op1.checked_add(op2),
-                '*' => op1.checked_mul(op2),
-                '-' => op1.checked_sub(op2),
-                '/' => op1.checked_div(op2),
+                '+' => Some(op1 + op2),
+                '*' => Some(op1 * op2),
+                '-' => Some(op1 - op2),
+                '/' => Some(op1 / op2),
                 _ => panic!("Unknown operator {}", op),
             }
         }
@@ -78,11 +78,11 @@ fn main() {
     let op1_2000 = solve(&root_op1, &monkeys, 2000).unwrap();
     let op2_1000 = solve(&root_op2, &monkeys, 1000).unwrap();
     let op2_2000 = solve(&root_op2, &monkeys, 2000).unwrap();
-    (root_op1, root_op2) = match (op1_1000.cmp(&op1_2000), op2_1000.cmp(&op2_2000)) {
-        (Equal, Less) => (root_op2, root_op1),
-        (Equal, Greater) => (root_op1, root_op2),
-        (Less, Equal) => (root_op1, root_op2),
-        (Greater, Equal) => (root_op2, root_op1),
+    (root_op1, root_op2) = match (op1_1000.partial_cmp(&op1_2000), op2_1000.partial_cmp(&op2_2000)) {
+        (Some(Equal), Some(Less)) => (root_op2, root_op1),
+        (Some(Equal), Some(Greater)) => (root_op1, root_op2),
+        (Some(Less), Some(Equal)) => (root_op1, root_op2),
+        (Some(Greater), Some(Equal)) => (root_op2, root_op1),
         _ => panic!("Neither side of root depends on humn?!"),
     };
 
@@ -113,21 +113,17 @@ fn main() {
             continue;
         }
 //        println!("bisecting {:14} - {:14}, med {:14}: {:?} {:?}: delta {}", min, max, med, op1, op2, op2.unwrap() - op1.unwrap());
-        match op1.cmp(&op2) {
-            Equal => break Some(med),
-            Less => min = med,
-            Greater => max = med,
+        match op1.partial_cmp(&op2) {
+            Some(Equal) => break Some(med),
+            Some(Less) => min = med,
+            Some(Greater) => max = med,
+            _ => panic!("can't compare"),
         }
     };
 
-    if res == None {
-        println!("Can't find a solution in the range 0..{}", std::isize::MAX);
+    if let Some(res) = res {
+        println!("Found an answer: {}", res);
     } else {
-        let med = res.unwrap();
-
-        let answers = (med-20..med+20).filter(|i| {
-            solve(&root_op1, &monkeys, *i) == solve(&root_op2, &monkeys, *i)
-        }).collect::<Vec<isize>>();
-        println!("These are valid answers: {:?}", answers);
+        println!("Can't find a solution in the range 0..{}", std::isize::MAX);
     }
 }
